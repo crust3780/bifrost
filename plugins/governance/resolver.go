@@ -4,7 +4,6 @@ package governance
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"github.com/maximhq/bifrost/core/schemas"
 	configstoreTables "github.com/maximhq/bifrost/framework/configstore/tables"
@@ -265,7 +264,7 @@ func (r *BudgetResolver) EvaluateVirtualKeyRequest(ctx *schemas.BifrostContext, 
 			Reason:   "Virtual key is inactive",
 		}
 	}
-	if vk.ExpiresAt != nil && time.Now().UTC().After(vk.ExpiresAt.UTC()) {
+	if isVirtualKeyExpired(vk) {
 		return &EvaluationResult{
 			Decision: DecisionVirtualKeyBlocked,
 			Reason:   "Virtual key has expired",

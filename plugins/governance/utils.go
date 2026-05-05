@@ -12,13 +12,21 @@ import (
 	"github.com/valyala/fasthttp"
 )
 
+// isVirtualKeyExpired returns true when the key has a set expiry that has passed.
+func isVirtualKeyExpired(vk *configstoreTables.TableVirtualKey) bool {
+	return vk != nil && vk.ExpiresAt != nil && time.Now().UTC().After(vk.ExpiresAt.UTC())
+}
+
 // isVirtualKeyUsable returns true when the key is active and has not passed its expiry.
-// A nil ExpiresAt means the key never expires.
+// A nil ExpiresAt means the key never expires. A nil vk is treated as unusable.
 func isVirtualKeyUsable(vk *configstoreTables.TableVirtualKey) bool {
+	if vk == nil {
+		return false
+	}
 	if !vk.IsActive {
 		return false
 	}
-	if vk.ExpiresAt != nil && time.Now().UTC().After(vk.ExpiresAt.UTC()) {
+	if isVirtualKeyExpired(vk) {
 		return false
 	}
 	return true

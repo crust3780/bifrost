@@ -403,7 +403,7 @@ func (p *GovernancePlugin) HTTPTransportPreHook(ctx *schemas.BifrostContext, req
 	// Process virtual key if provided
 	if virtualKeyValue != nil {
 		virtualKey, ok = p.store.GetVirtualKey(ctx, *virtualKeyValue)
-		if !ok || virtualKey == nil || !isVirtualKeyUsable(virtualKey) {
+		if !ok || !isVirtualKeyUsable(virtualKey) {
 			return nil, nil
 		}
 	}
@@ -501,7 +501,7 @@ func (p *GovernancePlugin) governLargePayload(ctx *schemas.BifrostContext, req *
 	var virtualKey *configstoreTables.TableVirtualKey
 	if virtualKeyValue != nil {
 		vk, ok := p.store.GetVirtualKey(ctx, *virtualKeyValue)
-		if !ok || vk == nil || !isVirtualKeyUsable(vk) {
+		if !ok || !isVirtualKeyUsable(vk) {
 			return nil, nil
 		}
 		virtualKey = vk
@@ -1455,7 +1455,7 @@ func (p *GovernancePlugin) PreMCPHook(ctx *schemas.BifrostContext, req *schemas.
 	// This runs independently of EvaluateGovernanceRequest to enforce execution-time allow-list.
 	if virtualKeyValue != "" {
 		vk, ok := p.store.GetVirtualKey(ctx, virtualKeyValue)
-		if !ok || vk == nil || !isVirtualKeyUsable(vk) {
+		if !ok || !isVirtualKeyUsable(vk) {
 			// VK became invalid or expired after initial check - fail closed for security
 			ctx.SetValue(governanceRejectedContextKey, true)
 			return req, &schemas.MCPPluginShortCircuit{Error: &schemas.BifrostError{
