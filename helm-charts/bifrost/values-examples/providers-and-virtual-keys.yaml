@@ -551,9 +551,11 @@ bifrost:
             weight: 1
 
       # 6. Testing — tight budget, tight rate limit, single model, single key.
+      # expires_at is set so this key automatically stops working after the sprint.
       - id: "vk-testing-limited"
         name: "Testing (gpt-4o-mini only)"
         is_active: true
+        expires_at: "2026-06-01T00:00:00Z"  # Key automatically expires at this UTC time
         budget_id: "budget-testing"
         rate_limit_id: "rate-limit-testing"
         provider_configs:
