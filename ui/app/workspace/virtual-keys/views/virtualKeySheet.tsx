@@ -110,6 +110,7 @@ const formSchema = z
 		teamId: z.string().optional(),
 		customerId: z.string().optional(),
 		isActive: z.boolean(),
+		expiresAt: z.string().nullable().optional(), // ISO 8601 datetime-local string, or null to clear
 		// Budget
 		budgetCalendarAligned: z.boolean(),
 		budgets: z
@@ -212,11 +213,11 @@ export default function VirtualKeySheet({ virtualKey, teams, customers, defaultT
 					})),
 					rate_limit: config.rate_limit
 						? {
-							token_max_limit: config.rate_limit.token_max_limit ?? undefined,
-							token_reset_duration: config.rate_limit.token_reset_duration,
-							request_max_limit: config.rate_limit.request_max_limit ?? undefined,
-							request_reset_duration: config.rate_limit.request_reset_duration,
-						}
+								token_max_limit: config.rate_limit.token_max_limit ?? undefined,
+								token_reset_duration: config.rate_limit.token_reset_duration,
+								request_max_limit: config.rate_limit.request_max_limit ?? undefined,
+								request_reset_duration: config.rate_limit.request_reset_duration,
+							}
 						: undefined,
 				})) || [],
 			mcpConfigs:
@@ -229,6 +230,7 @@ export default function VirtualKeySheet({ virtualKey, teams, customers, defaultT
 			teamId: virtualKey?.team_id || (!isEditing ? defaultTeamId || "" : ""),
 			customerId: virtualKey?.customer_id || "",
 			isActive: virtualKey?.is_active ?? true,
+			expiresAt: virtualKey?.expires_at ? new Date(virtualKey.expires_at).toISOString().slice(0, 16) : null,
 			budgets:
 				virtualKey?.budgets && virtualKey.budgets.length > 0
 					? virtualKey.budgets.map((b) => ({ max_limit: b.max_limit, reset_duration: b.reset_duration ?? "1M" }))
@@ -444,6 +446,8 @@ export default function VirtualKeySheet({ virtualKey, teams, customers, defaultT
 					team_id: data.entityType === "team" && data.teamId && data.teamId.trim() !== "" ? data.teamId : undefined,
 					customer_id: data.entityType === "customer" && data.customerId && data.customerId.trim() !== "" ? data.customerId : undefined,
 					is_active: data.isActive,
+					// Always send expires_at so users can clear it: convert datetime-local string to ISO 8601 UTC, or null to clear
+					expires_at: data.expiresAt ? new Date(data.expiresAt).toISOString() : null,
 				};
 
 				// Add budgets if enabled
@@ -487,6 +491,7 @@ export default function VirtualKeySheet({ virtualKey, teams, customers, defaultT
 					team_id: data.entityType === "team" && data.teamId && data.teamId.trim() !== "" ? data.teamId : undefined,
 					customer_id: data.entityType === "customer" && data.customerId && data.customerId.trim() !== "" ? data.customerId : undefined,
 					is_active: data.isActive,
+					expires_at: data.expiresAt ? new Date(data.expiresAt).toISOString() : undefined,
 				};
 
 				// Add budgets if enabled
@@ -625,6 +630,39 @@ export default function VirtualKeySheet({ virtualKey, teams, customers, defaultT
 										render={({ field }) => (
 											<FormItem>
 												<Toggle label="Is this key active?" val={field.value} setVal={field.onChange} data-testid="vk-is-active-toggle" />
+											</FormItem>
+										)}
+									/>
+									<FormField
+										control={form.control}
+										name="expiresAt"
+										render={({ field }) => (
+											<FormItem>
+												<FormLabel>Expiry date (optional)</FormLabel>
+												<FormControl>
+													<div className="flex items-center gap-2">
+														<Input
+															type="datetime-local"
+															data-testid="vk-expires-at-input"
+															value={field.value ?? ""}
+															onChange={(e) => field.onChange(e.target.value || null)}
+															className="w-auto"
+														/>
+														{field.value && (
+															<Button
+																type="button"
+																variant="ghost"
+																size="icon"
+																onClick={() => field.onChange(null)}
+																data-testid="vk-expires-at-clear"
+																aria-label="Clear expiry date"
+															>
+																<X className="h-4 w-4" />
+															</Button>
+														)}
+													</div>
+												</FormControl>
+												<FormMessage />
 											</FormItem>
 										)}
 									/>
@@ -817,7 +855,7 @@ export default function VirtualKeySheet({ virtualKey, teams, customers, defaultT
 																								? "No models (deny all)"
 																								: config.provider
 																									? ModelPlaceholders[config.provider as keyof typeof ModelPlaceholders] ||
-																									ModelPlaceholders.default
+																										ModelPlaceholders.default
 																									: ModelPlaceholders.default
 																					}
 																					className="min-h-10 max-w-[500px] min-w-[200px]"
@@ -855,16 +893,16 @@ export default function VirtualKeySheet({ virtualKey, teams, customers, defaultT
 																	const selectedProviderKeys = hasWildcard
 																		? [allKeyOptions[0]]
 																		: providerKeys
-																			.filter((key) => configKeyIds.includes(key.key_id))
-																			.map((key) => ({
-																				label: key.name,
-																				value: key.key_id,
-																				description:
-																					key.models == null || key.models.includes("*")
-																						? "All models"
-																						: key.models.filter((m) => m !== "*").join(", ") || "No models (deny all)",
-																				provider: key.provider,
-																			}));
+																				.filter((key) => configKeyIds.includes(key.key_id))
+																				.map((key) => ({
+																					label: key.name,
+																					value: key.key_id,
+																					description:
+																						key.models == null || key.models.includes("*")
+																							? "All models"
+																							: key.models.filter((m) => m !== "*").join(", ") || "No models (deny all)",
+																					provider: key.provider,
+																				}));
 
 																	return (
 																		<div className="mx-0.5 space-y-2">
@@ -964,9 +1002,9 @@ export default function VirtualKeySheet({ virtualKey, teams, customers, defaultT
 																	lines={
 																		config.budgets && config.budgets.length > 0
 																			? config.budgets.map((b) => ({
-																				max_limit: b.max_limit,
-																				reset_duration: b.reset_duration || "1M",
-																			}))
+																					max_limit: b.max_limit,
+																					reset_duration: b.reset_duration || "1M",
+																				}))
 																			: []
 																	}
 																	onChange={(lines) => {

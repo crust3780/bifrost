@@ -64,7 +64,8 @@ function virtualKeysToCSV(vks: VirtualKey[]): string {
 			(vk.rate_limit?.request_current_usage &&
 				vk.rate_limit?.request_max_limit &&
 				vk.rate_limit.request_current_usage >= vk.rate_limit.request_max_limit);
-		const status = vk.is_active ? (isExhausted ? "Exhausted" : "Active") : "Inactive";
+		const isExpired = !!vk.expires_at && new Date() > new Date(vk.expires_at);
+		const status = !vk.is_active ? "Inactive" : isExpired ? "Expired" : isExhausted ? "Exhausted" : "Active";
 		const assignedTo = vk.team ? `Team: ${vk.team.name}` : vk.customer ? `Customer: ${vk.customer.name}` : "";
 		const budgetLimit = vk.budgets?.length ? vk.budgets.map((b) => formatCurrency(b.max_limit)).join("; ") : "";
 		const budgetSpent = vk.budgets?.length ? vk.budgets.map((b) => formatCurrency(b.current_usage)).join("; ") : "";
@@ -117,11 +118,10 @@ function VKRateLimitCell({ vk }: { vk: VirtualKey }) {
 // so managed keys don't show "Active" next to an exhausted-looking bar.
 function VKStatusBadge({ vk }: { vk: VirtualKey }) {
 	const { isExhausted } = useVirtualKeyUsage(vk);
-	return (
-		<Badge variant={vk.is_active ? (isExhausted ? "destructive" : "default") : "secondary"}>
-			{vk.is_active ? (isExhausted ? "Exhausted" : "Active") : "Inactive"}
-		</Badge>
-	);
+	const isExpired = !!vk.expires_at && new Date() > new Date(vk.expires_at);
+	const variant = !vk.is_active ? "secondary" : isExpired || isExhausted ? "destructive" : "default";
+	const label = !vk.is_active ? "Inactive" : isExpired ? "Expired" : isExhausted ? "Exhausted" : "Active";
+	return <Badge variant={variant}>{label}</Badge>;
 }
 
 // Per-row delete button. Calls useVirtualKeyUsage (same cached query as the budget/
@@ -187,7 +187,8 @@ function VKDeleteButton({
 				<AlertDialogHeader>
 					<AlertDialogTitle>Delete Virtual Key</AlertDialogTitle>
 					<AlertDialogDescription>
-						Are you sure you want to delete &quot;{vk.name.length > 20 ? `${vk.name.slice(0, 20)}...` : vk.name}&quot;? This action cannot be undone.
+						Are you sure you want to delete &quot;{vk.name.length > 20 ? `${vk.name.slice(0, 20)}...` : vk.name}&quot;? This action cannot
+						be undone.
 					</AlertDialogDescription>
 				</AlertDialogHeader>
 				<AlertDialogFooter>
@@ -387,7 +388,6 @@ export default function VirtualKeysTable({
 		);
 	};
 
-
 	// True empty state: no VKs at all (not just filtered to zero)
 	if (totalCount === 0 && !hasActiveFilters) {
 		return (
@@ -549,7 +549,7 @@ export default function VirtualKeysTable({
 						value={customerFilter || null}
 						onValueChange={(val) => onCustomerFilterChange(val ?? "")}
 						placeholder="All Customers"
-						className="w-[180px] h-9"
+						className="h-9 w-[180px]"
 					/>
 					{customerFilter && teamFilter && <span className="text-muted-foreground text-xs font-medium">or</span>}
 					<ComboboxSelect
@@ -558,12 +558,12 @@ export default function VirtualKeysTable({
 						value={teamFilter || null}
 						onValueChange={(val) => onTeamFilterChange(val ?? "")}
 						placeholder="All Teams"
-						className="w-[180px] h-9"
+						className="h-9 w-[180px]"
 					/>
 				</div>
 
 				<div className="rounded-sm border">
-					<Table className="table-fixed w-full" data-testid="vk-table">
+					<Table className="w-full table-fixed" data-testid="vk-table">
 						<TableHeader>
 							<TableRow>
 								<TableHead className="w-[250px]">
@@ -604,11 +604,15 @@ export default function VirtualKeysTable({
 											</TableCell>
 											<TableCell>
 												{vk.team ? (
-													<Badge variant="outline" className="max-w-full truncate text-left block">Team: {vk.team.name}</Badge>
+													<Badge variant="outline" className="block max-w-full truncate text-left">
+														Team: {vk.team.name}
+													</Badge>
 												) : vk.customer ? (
-													<Badge variant="outline" className="max-w-full truncate text-left block">Customer: {vk.customer.name}</Badge>
+													<Badge variant="outline" className="block max-w-full truncate text-left">
+														Customer: {vk.customer.name}
+													</Badge>
 												) : (
-													<span className="text-muted-foreground text-sm truncate max-w-full text-left">-</span>
+													<span className="text-muted-foreground max-w-full truncate text-left text-sm">-</span>
 												)}
 											</TableCell>
 											<TableCell onClick={(e) => e.stopPropagation()}>

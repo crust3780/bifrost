@@ -4,11 +4,25 @@ package governance
 import (
 	"context"
 	"strings"
+	"time"
 
 	bifrost "github.com/maximhq/bifrost/core"
 	"github.com/maximhq/bifrost/core/schemas"
+	configstoreTables "github.com/maximhq/bifrost/framework/configstore/tables"
 	"github.com/valyala/fasthttp"
 )
+
+// isVirtualKeyUsable returns true when the key is active and has not passed its expiry.
+// A nil ExpiresAt means the key never expires.
+func isVirtualKeyUsable(vk *configstoreTables.TableVirtualKey) bool {
+	if !vk.IsActive {
+		return false
+	}
+	if vk.ExpiresAt != nil && time.Now().UTC().After(vk.ExpiresAt.UTC()) {
+		return false
+	}
+	return true
+}
 
 // ParseVirtualKeyFromFastHTTPRequest parses the virtual key from FastHTTP request headers.
 // Parameters:

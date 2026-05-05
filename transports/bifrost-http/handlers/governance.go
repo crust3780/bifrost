@@ -87,6 +87,7 @@ type CreateVirtualKeyRequest struct {
 	RateLimit       *CreateRateLimitRequest `json:"rate_limit,omitempty"`
 	IsActive        *bool                   `json:"is_active,omitempty"`
 	CalendarAligned bool                    `json:"calendar_aligned,omitempty"` // When true, all budgets reset at clean calendar boundaries
+	ExpiresAt       *time.Time              `json:"expires_at,omitempty"`       // Optional expiry; key is treated as inactive after this UTC timestamp
 }
 
 // UpdateVirtualKeyRequest represents the request body for updating a virtual key
@@ -113,6 +114,7 @@ type UpdateVirtualKeyRequest struct {
 	RateLimit       *UpdateRateLimitRequest `json:"rate_limit,omitempty"`
 	IsActive        *bool                   `json:"is_active,omitempty"`
 	CalendarAligned *bool                   `json:"calendar_aligned,omitempty"` // When true, all budgets reset at clean calendar boundaries
+	ExpiresAt       **time.Time             `json:"expires_at,omitempty"`       // Optional expiry; null clears, omitted leaves unchanged
 }
 
 // CreateBudgetRequest represents the request body for creating a budget
@@ -498,6 +500,7 @@ func (h *GovernanceHandler) createVirtualKey(ctx *fasthttp.RequestCtx) {
 			CustomerID:      req.CustomerID,
 			IsActive:        isActive,
 			CalendarAligned: req.CalendarAligned,
+			ExpiresAt:       req.ExpiresAt,
 		}
 		if req.RateLimit != nil {
 			rateLimit := configstoreTables.TableRateLimit{
@@ -772,6 +775,9 @@ func (h *GovernanceHandler) updateVirtualKey(ctx *fasthttp.RequestCtx) {
 		}
 		if req.IsActive != nil {
 			vk.IsActive = *req.IsActive
+		}
+		if req.ExpiresAt != nil {
+			vk.ExpiresAt = *req.ExpiresAt
 		}
 		if req.CalendarAligned != nil {
 			vk.CalendarAligned = *req.CalendarAligned
