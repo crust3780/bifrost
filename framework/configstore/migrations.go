@@ -7303,11 +7303,21 @@ func migrationAddVirtualKeyExpiresAtColumn(ctx context.Context, db *gorm.DB) err
 					return fmt.Errorf("failed to add expires_at column: %w", err)
 				}
 			}
+			if !mg.HasIndex(&tables.TableVirtualKey{}, "ExpiresAt") {
+				if err := mg.CreateIndex(&tables.TableVirtualKey{}, "ExpiresAt"); err != nil {
+					return fmt.Errorf("failed to create expires_at index: %w", err)
+				}
+			}
 			return nil
 		},
 		Rollback: func(tx *gorm.DB) error {
 			tx = tx.WithContext(ctx)
 			mg := tx.Migrator()
+			if mg.HasIndex(&tables.TableVirtualKey{}, "ExpiresAt") {
+				if err := mg.DropIndex(&tables.TableVirtualKey{}, "ExpiresAt"); err != nil {
+					return fmt.Errorf("failed to drop expires_at index: %w", err)
+				}
+			}
 			if mg.HasColumn(&tables.TableVirtualKey{}, "expires_at") {
 				if err := mg.DropColumn(&tables.TableVirtualKey{}, "expires_at"); err != nil {
 					return fmt.Errorf("failed to drop expires_at column: %w", err)

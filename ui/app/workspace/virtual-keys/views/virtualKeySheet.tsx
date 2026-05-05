@@ -230,7 +230,13 @@ export default function VirtualKeySheet({ virtualKey, teams, customers, defaultT
 			teamId: virtualKey?.team_id || (!isEditing ? defaultTeamId || "" : ""),
 			customerId: virtualKey?.customer_id || "",
 			isActive: virtualKey?.is_active ?? true,
-			expiresAt: virtualKey?.expires_at ? new Date(virtualKey.expires_at).toISOString().slice(0, 16) : null,
+			expiresAt: virtualKey?.expires_at
+				? (() => {
+						const d = new Date(virtualKey.expires_at);
+						// Shift by the local timezone offset so the datetime-local input shows the correct local wall-clock time
+						return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+					})()
+				: null,
 			budgets:
 				virtualKey?.budgets && virtualKey.budgets.length > 0
 					? virtualKey.budgets.map((b) => ({ max_limit: b.max_limit, reset_duration: b.reset_duration ?? "1M" }))
