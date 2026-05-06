@@ -26,6 +26,30 @@ import (
 	"gorm.io/gorm"
 )
 
+// NullableTime is a JSON helper that distinguishes three states for a *time.Time field:
+//   - absent (key not in JSON) → outer pointer nil, UnmarshalJSON never called
+//   - explicit null             → outer pointer non-nil, Time == nil (clear the value)
+//   - a specific timestamp      → outer pointer non-nil, Time == &t (set the value)
+//
+// Use as *NullableTime in request structs. encoding/json's **time.Time cannot
+// distinguish null from absent because it breaks early at the outer pointer level.
+type NullableTime struct {
+	Time *time.Time
+}
+
+func (n *NullableTime) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		n.Time = nil
+		return nil
+	}
+	var t time.Time
+	if err := json.Unmarshal(data, &t); err != nil {
+		return fmt.Errorf("invalid time value: %w", err)
+	}
+	n.Time = &t
+	return nil
+}
+
 // GovernanceManager is the interface for the governance manager
 type GovernanceManager interface {
 	GetGovernanceData(ctx context.Context) *governance.GovernanceData
@@ -114,7 +138,7 @@ type UpdateVirtualKeyRequest struct {
 	RateLimit       *UpdateRateLimitRequest `json:"rate_limit,omitempty"`
 	IsActive        *bool                   `json:"is_active,omitempty"`
 	CalendarAligned *bool                   `json:"calendar_aligned,omitempty"` // When true, all budgets reset at clean calendar boundaries
-	ExpiresAt       **time.Time             `json:"expires_at,omitempty"`       // Optional expiry; null clears, omitted leaves unchanged
+	ExpiresAt       *NullableTime           `json:"expires_at,omitempty"`       // Optional expiry; null clears, omitted leaves unchanged
 }
 
 // CreateBudgetRequest represents the request body for creating a budget
@@ -777,7 +801,7 @@ func (h *GovernanceHandler) updateVirtualKey(ctx *fasthttp.RequestCtx) {
 			vk.IsActive = *req.IsActive
 		}
 		if req.ExpiresAt != nil {
-			vk.ExpiresAt = *req.ExpiresAt
+			vk.ExpiresAt = req.ExpiresAt.Time
 		}
 		if req.CalendarAligned != nil {
 			vk.CalendarAligned = *req.CalendarAligned
